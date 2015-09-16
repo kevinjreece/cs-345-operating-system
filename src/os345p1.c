@@ -32,7 +32,7 @@ extern jmp_buf reset_context;
 // -----
 
 
-#define NUM_COMMANDS 49
+#define NUM_COMMANDS 51
 typedef struct								// command struct
 {
 	char* command;
@@ -88,6 +88,7 @@ int P1_shellTask(int argc, char* argv[])
 {
 	int i, found, newArgc;					// # of arguments
 	char** newArgv;							// pointers to arguments
+	char background = FALSE;
 
 	// initialize shell commands
 	commands = P1_init();					// init shell commands
@@ -103,7 +104,7 @@ int P1_shellTask(int argc, char* argv[])
 
 		SEM_WAIT(inBufferReady);			// wait for input buffer semaphore
 		if (!inBuffer[0]) continue;		// ignore blank lines
-		printf("\nYou entered: `%s`\n", inBuffer);
+		// printf("\nYou entered: `%s`\n", inBuffer);
 
 		SWAP										// do context switch
 
@@ -117,9 +118,16 @@ int P1_shellTask(int argc, char* argv[])
 			newArgc = 0;
 			sp = inBuffer;				// point to input string
 			size_t buffer_length = strlen(inBuffer);
-			printf("buffer size: %zu\n", buffer_length);
+			// printf("buffer size: %zu\n", buffer_length);
+			printf("\n");
 			for (i=1; i<MAX_ARGS; i++) {
 				myArgv[i] = 0;
+			}
+
+			if (inBuffer[buffer_length - 1] == '&') {
+				background = TRUE;
+				buffer_length--;
+				sp[buffer_length] = NULL;
 			}
 
 			char ch;
@@ -139,7 +147,6 @@ int P1_shellTask(int argc, char* argv[])
 					arg_start = i + 1;
 					if (sp[++i] != '"') {
 						while (sp[i] != '"' && sp[i]) {
-							sp[i] = lower(sp[i]);
 							i++;
 						}	
 					}
@@ -160,9 +167,9 @@ int P1_shellTask(int argc, char* argv[])
 				char* temp = (char*)malloc(sizeof(char*) * length+1);
 				// printf("start char: %c\tend char: %c\tlength: %zu\n", sp[arg_start], sp[arg_end-1], length);
 				memcpy(temp, sp+arg_start, length);
-				temp[length] = 0;
+				temp[length] = NULL;
 				myArgv[newArgc++] = temp;
-				printf("`%s`\n", myArgv[newArgc - 1]);
+				// printf("`%s`\n", myArgv[newArgc - 1]);
 			}
 
 			newArgv = myArgv;
@@ -259,6 +266,35 @@ int P1_help(int argc, char* argv[])
 } // end P1_help
 
 
+
+// ***********************************************************************
+// ***********************************************************************
+// add command
+//
+int P1_add(int argc, char* argv[])
+{
+	
+
+	return 0;
+} // end P1_add
+
+
+
+// ***********************************************************************
+// ***********************************************************************
+// args command
+//
+int P1_args(int argc, char* argv[])
+{
+	for (int i = 1; i < argc; i++) {
+		printf("`%s`\n", argv[i]);
+	}
+
+	return 0;
+} // end P1_add
+
+
+
 // ***********************************************************************
 // ***********************************************************************
 // initialize shell commands
@@ -300,6 +336,8 @@ Command** P1_init()
 	commands[i++] = newCommand("project1", "p1", P1_project1, "P1: Shell");
 	commands[i++] = newCommand("help", "he", P1_help, "OS345 Help");
 	commands[i++] = newCommand("lc3", "lc3", P1_lc3, "Execute LC3 program");
+	commands[i++] = newCommand("add", "ad", P1_add, "Add integers");
+	commands[i++] = newCommand("args", "ar", P1_args, "List all parameters");
 
 	// P2: Tasking
 	commands[i++] = newCommand("project2", "p2", P2_project2, "P2: Tasking");
