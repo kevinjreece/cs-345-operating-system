@@ -94,7 +94,7 @@ int P1_shellTask(int argc, char* argv[])
 
 		SEM_WAIT(inBufferReady);			// wait for input buffer semaphore
 		if (!inBuffer[0]) continue;		// ignore blank lines
-		printf("\nYou entered: `%s`", inBuffer);
+		printf("\nYou entered: `%s`\n", inBuffer);
 
 		SWAP										// do context switch
 
@@ -105,34 +105,51 @@ int P1_shellTask(int argc, char* argv[])
 			static char *sp, *myArgv[MAX_ARGS];
 
 			// init arguments
-			newArgc = 1;
-			myArgv[0] = sp = inBuffer;				// point to input string
+			newArgc = 0;
+			sp = inBuffer;				// point to input string
+			size_t buffer_length = strlen(inBuffer);
+			printf("buffer size: %zu\n", buffer_length);
 			for (i=1; i<MAX_ARGS; i++) {
 				myArgv[i] = 0;
 			}
 
-			printf("\nmyArgv[0] = %s", myArgv[0]);
-
+			char ch;
+			int i = 0;
+			int arg_start = 0; // Saves index of start of next arg
+			int arg_end = 0;
+			char in_arg = FALSE;
+			char in_string = FALSE;
 			// parse input string
-			while ((sp = strchr(sp, ' '))) // Returns a pointer to the first occurrence of ' ' in the C string sp.
+			while (i < buffer_length)
 			{
-				*sp++ = 0;
-				char* next_space = strchr(sp, ' ');
-				int word_length = (next_space == '\0' ? strchr(sp, '\0') : next_space) - sp;
-				char* newArg = malloc(word_length + 1);
-				memcpy(newArg, sp, word_length);
-				newArg[word_length] = '\0';
-				myArgv[newArgc++] = newArg;
-				printf("\nNow here: `%s`\nand here: `%s`\nwith length: %d", sp, newArg, word_length);
+				// eat chars until next non-space character
+				while (sp[i] == ' ' && sp[i]) i++;
+
+				// argument is in quotes; eat chars until next double quotes
+				if (sp[i] == '"') {
+					arg_start = i + 1;
+					if (sp[++i] != '"') {
+						while (sp[i] != '"' && sp[i]) i++;	
+					}
+					arg_end = i++;
+				}
+				/// argument is not in quotes; eat chars until next space
+				else {
+					arg_start = i;
+					while (sp[i] != ' ' && sp[i]) i++;
+					arg_end = i;
+				}
+
+
+				size_t length = arg_end - arg_start;
+				char* temp = (char*)malloc(sizeof(char*) * length+1);
+				// printf("start char: %c\tend char: %c\tlength: %zu\n", sp[arg_start], sp[arg_end-1], length);
+				memcpy(temp, sp+arg_start, length);
+				temp[length] = 0;
+				myArgv[newArgc++] = temp;
+				printf("`%s`\n", myArgv[newArgc - 1]);
 			}
-
-			printf("\nmyArgv[0] = %s", myArgv[0]);
-
-			for (int i = 0; i < newArgc; i++) {
-				printf("\n%s", myArgv[i]);
-			}
-
-			printf("\n%d", newArgc);
+			
 			newArgv = myArgv;
 		}	// ?? >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
