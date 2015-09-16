@@ -62,6 +62,15 @@ void mySigIntHandler()
 	printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
 }
 
+char lower(char ch) {
+	if (ch >= 'A' && ch <= 'Z') {
+		return ch + 'a' - 'A';
+	}
+	else {
+		return ch;
+	}
+}
+
 // ***********************************************************************
 // myShell - command line interpreter
 //
@@ -129,14 +138,20 @@ int P1_shellTask(int argc, char* argv[])
 				if (sp[i] == '"') {
 					arg_start = i + 1;
 					if (sp[++i] != '"') {
-						while (sp[i] != '"' && sp[i]) i++;	
+						while (sp[i] != '"' && sp[i]) {
+							sp[i] = lower(sp[i]);
+							i++;
+						}	
 					}
 					arg_end = i++;
 				}
 				/// argument is not in quotes; eat chars until next space
 				else {
 					arg_start = i;
-					while (sp[i] != ' ' && sp[i]) i++;
+					while (sp[i] != ' ' && sp[i]) {
+						sp[i] = lower(sp[i]);
+						i++;	
+					}
 					arg_end = i;
 				}
 
@@ -149,7 +164,7 @@ int P1_shellTask(int argc, char* argv[])
 				myArgv[newArgc++] = temp;
 				printf("`%s`\n", myArgv[newArgc - 1]);
 			}
-			
+
 			newArgv = myArgv;
 		}	// ?? >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
