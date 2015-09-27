@@ -115,11 +115,37 @@ static void keyboard_isr()
 				break;
 			}
 
+			case 0x12:						// ^r
+			{
+				sigSignal(-1, mySIGCONT);		// interrupt all tasks
+				sigClear(-1, mySIGTSTP);
+				sigClear(-1, mySIGSTOP);
+				break;
+			}
+
+			case 0x17:						// ^w
+			{
+				sigSignal(-1, mySIGTSTP);		// interrupt all tasks
+				break;
+			}
+
+			case 0x7f:							// backspace
+			{
+				if (inBufIndx > 0) {
+					inBufIndx--;
+					inBuffer[inBufIndx] = 0;
+					printf("\b \b");
+				}
+				break;
+			}
+
 			default:
 			{
-				inBuffer[inBufIndx++] = inChar;
-				inBuffer[inBufIndx] = 0;
-				printf("%c", inChar);		// echo character
+				if (inBufIndx < INBUF_SIZE) {
+					inBuffer[inBufIndx++] = inChar;
+					inBuffer[inBufIndx] = 0;
+					printf("%c", inChar);		// echo character
+				}
 			}
 		}
 	}

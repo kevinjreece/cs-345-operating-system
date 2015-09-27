@@ -57,6 +57,7 @@ int createTask(char* name,						// task name
 
 			// create task semaphore
 			if (taskSems[tid]) deleteSemaphore(&taskSems[tid]);
+
 			sprintf(buf, "task%d", tid);
 			taskSems[tid] = createSemaphore(buf, 0, 0);
 			taskSems[tid]->taskNum = 0;	// assign to shell
@@ -72,8 +73,16 @@ int createTask(char* name,						// task name
 			tcb[tid].parent = curTask;		// parent
 			tcb[tid].argc = argc;			// argument count
 
-			// ?? malloc new argv parameters
-			tcb[tid].argv = argv;			// argument pointers
+			// malloc new argv parameters
+			char** temp_argv = (char**)malloc(sizeof(char*) * (argc + 1));
+			temp_argv[argc] = NULL;
+			for (int i = 0; i < argc; i++) {
+				// printf("index: %d\tvalue: %s\n", i, argv[i]);
+				temp_argv[i] = (char*)malloc(sizeof(char) * (strlen(argv[i]) + 1));
+				strcpy(temp_argv[i], argv[i]);
+			}
+			
+			tcb[tid].argv = temp_argv;			// argument pointers
 
 			tcb[tid].event = 0;				// suspend semaphore
 			tcb[tid].RPT = 0;					// root page table (project 5)
@@ -172,6 +181,12 @@ int sysKillTask(int taskId)
 			semLink = (Semaphore**)&sem->semLink;
 		}
 	}
+
+	// free malloc'd memory in argv
+	for (int i = 0; i < tcb[taskId].argc; i++) {
+		free(tcb[taskId].argv[i]);
+	}
+	free(tcb[taskId].argv);
 
 	// ?? delete task from system queues
 

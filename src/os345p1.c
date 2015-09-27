@@ -57,11 +57,6 @@ Command** commands;						// shell commands
 Command** P1_init(void);
 Command* newCommand(char*, char*, int (*func)(int, char**), char*);
 
-void mySigIntHandler()
-{
-	printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
-}
-
 char lower(char ch) {
 	if (ch >= 'A' && ch <= 'Z') {
 		return ch + 'a' - 'A';
@@ -93,8 +88,6 @@ int P1_shellTask(int argc, char* argv[])
 	// initialize shell commands
 	commands = P1_init();					// init shell commands
 
-	sigAction(mySigIntHandler, mySIGINT);
-
 
 	while (1)
 	{
@@ -104,7 +97,7 @@ int P1_shellTask(int argc, char* argv[])
 
 		SEM_WAIT(inBufferReady);			// wait for input buffer semaphore
 		if (!inBuffer[0]) continue;		// ignore blank lines
-		// printf("\nYou entered: `%s`\n", inBuffer);
+		
 
 		SWAP										// do context switch
 
@@ -129,9 +122,10 @@ int P1_shellTask(int argc, char* argv[])
 				buffer_length--;
 				sp[buffer_length] = NULL;
 			}
+			printf("\nYou entered: `%s`\n", sp);
 
 			char ch;
-			int i = 0;
+			i = 0;
 			int arg_start = 0; // Saves index of start of next arg
 			int arg_end = 0;
 			char in_arg = FALSE;
@@ -139,6 +133,9 @@ int P1_shellTask(int argc, char* argv[])
 			// parse input string
 			while (i < buffer_length)
 			{
+				if (newArgc > MAX_ARGS) break;
+
+
 				// eat chars until next non-space character
 				while (sp[i] == ' ' && sp[i]) i++;
 
@@ -164,7 +161,7 @@ int P1_shellTask(int argc, char* argv[])
 
 
 				size_t length = arg_end - arg_start;
-				char* temp = (char*)malloc(sizeof(char*) * length+1);
+				char* temp = (char*)malloc(sizeof(char) * (length + 1));
 				// printf("start char: %c\tend char: %c\tlength: %zu\n", sp[arg_start], sp[arg_end-1], length);
 				memcpy(temp, sp+arg_start, length);
 				temp[length] = NULL;
@@ -172,7 +169,15 @@ int P1_shellTask(int argc, char* argv[])
 				// printf("`%s`\n", myArgv[newArgc - 1]);
 			}
 
-			newArgv = myArgv;
+			newArgv = (char**)malloc(sizeof(char*) * (newArgc + 1));
+			newArgv[newArgc] = NULL;
+
+			for (int j = 0; j < newArgc; j++) {
+				newArgv[j] = myArgv[j];
+				// printf("`%s`\n", newArgv[j]);	
+			}
+
+			// newArgv = myArgv;
 		}	// ?? >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 		// look for command
@@ -182,8 +187,13 @@ int P1_shellTask(int argc, char* argv[])
 				 !strcmp(newArgv[0], commands[i]->shortcut))
 			{
 				// command found
-				int retValue = (*commands[i]->func)(newArgc, newArgv);
-				if (retValue) printf("\nCommand Error %d", retValue);
+				if (background) {
+					createTask(commands[i]->command, commands[i]->func, 0, newArgc, newArgv);
+				}
+				else {
+					int retValue = (*commands[i]->func)(newArgc, newArgv);
+					if (retValue) printf("\nCommand Error %d", retValue);
+				}
 				found = TRUE;
 				break;
 			}
@@ -191,6 +201,11 @@ int P1_shellTask(int argc, char* argv[])
 		if (!found)	printf("\nInvalid command!");
 
 		// ?? free up any malloc'd argv parameters
+		for (i = 0; i < newArgc; i++) {
+			free(newArgv[i]);
+		}
+		free(newArgv);
+
 		for (i=0; i<INBUF_SIZE; i++) inBuffer[i] = 0;
 	}
 	return 0;						// terminate task
@@ -273,7 +288,25 @@ int P1_help(int argc, char* argv[])
 //
 int P1_add(int argc, char* argv[])
 {
-	
+	long sum = 0;
+
+	// printf("%d\n", argc);
+
+	for (int i = 1; i < argc; i++) {
+		// printf("%s\n", argv[i]);
+		long num;
+		if (argv[i][0] == '%') {
+			argv[i][0] = ' ';
+			num = strtol(argv[i], NULL, 2);
+		}
+		else {
+			num = strtol(argv[i], NULL, 0);
+		}
+
+
+		sum += num;
+	}
+	printf("Sum: %ld\n", sum);
 
 	return 0;
 } // end P1_add
@@ -286,7 +319,7 @@ int P1_add(int argc, char* argv[])
 //
 int P1_args(int argc, char* argv[])
 {
-	for (int i = 1; i < argc; i++) {
+	for (int i = 0; i < argc; i++) {
 		printf("`%s`\n", argv[i]);
 	}
 
