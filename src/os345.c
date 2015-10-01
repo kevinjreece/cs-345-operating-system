@@ -83,7 +83,7 @@ bool diskMounted;					// disk has been mounted
 time_t oldTime1;					// old 1sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
-int* rq;							// ready priority queue
+PQueue* rq;							// ready priority queue
 
 
 // **********************************************************************
@@ -194,14 +194,24 @@ static int scheduler()
 	// ?? you thinking about scheduling.  You must implement code to handle
 	// ?? priorities, clean up dead tasks, and handle semaphores appropriately.
 
-	// schedule next task
-	nextTask = ++curTask;
 
-	// mask sure nextTask is valid
-	while (!tcb[nextTask].name)
-	{
-		if (++nextTask >= MAX_TASKS) nextTask = 0;
+	if ((nextTask = deQ(rq, -1)) >= 0) {
+		enQ(rq, nextTask, tcb[nextTask].priority);
 	}
+	else {
+		return -1;
+	}
+
+	// // schedule next task
+	// nextTask = ++curTask;
+
+	// // mask sure nextTask is valid
+	// while (!tcb[nextTask].name)
+	// {
+	// 	if (++nextTask >= MAX_TASKS) nextTask = 0;
+	// }
+
+
 	if (tcb[nextTask].signal & mySIGSTOP) return -1;
 
 	return nextTask;
@@ -350,7 +360,8 @@ static int initOS()
 	diskMounted = 0;					// disk has been mounted
 
 	// malloc ready queue
-	rq = (int*)malloc(MAX_TASKS * sizeof(int));
+	rq = (int*)malloc((MAX_TASKS + 1) * sizeof(int));
+	rq->queue[0].count = 0;
 	if (rq == NULL) return 99;
 
 	// capture current time
@@ -408,4 +419,89 @@ void powerDown(int code)
 	RESTORE_OS
 	return;
 } // end powerDown
+
+// Prints to stdout the contents of the PQueue
+void printQ(PQueue* q) {
+	int count = q->queue[0].count;
+	for (int i = count; i > 0; --i) {
+		printf("i: %d\tPriority: %d\tTID: %d\n", i, q->queue[i].entry.priority, q->queue[i].entry.tid);
+	}
+	printf("i: 0\tCount: %d\n", count);
+	printf("\n");
+}
+
+// Creates an entry for the given priority and tid in the spot just above the current highest priority entry less than the new priority
+TID enQ(PQueue* q, TID tid, int8 priority) {
+	int count = q->queue[0].count;
+
+	// Check if queue is full
+	if (count == MAX_TASKS) { return -1; }
+	
+	// If the queue is empty, put the entry in the first slot
+	if (count == 0) {
+		q->queue[1].entry.priority = priority;
+		q->queue[1].entry.tid = tid;
+		q->queue[0].count++;
+		// printf("Count: %d\tPriority: %d\tTID: %d\n", q->queue[0].count, priority, tid);
+		return tid;
+	}
+
+	// If the queue is not empty, start at the highest priority item
+	for (int i = count; i >= 0; --i) {
+		if (priority > q->queue[i].entry.priority || i == 0) {
+			q->queue[i+1].entry.priority = priority;
+			q->queue[i+1].entry.tid = tid;
+			q->queue[0].count++;
+			// printf("Count: %d\tPriority: %d\tTID: %d\ti: %d\n", q->queue[0].count, priority, tid, i);
+			return tid;
+		}
+		else {
+			q->queue[i+1].entry.priority = q->queue[i].entry.priority;
+			q->queue[i+1].entry.tid = q->queue[i].entry.tid;
+		}
+	}
+
+	return -1;
+}
+
+// Removes the given tid from the queue if found, or removes the highest priority entry if tid is -1
+TID deQ(PQueue* q, TID tid) {
+	// Check if queue is empty
+	if (q->queue[0].count == 0) { return -1; }
+
+	TID ret_tid = -1;
+
+	// If tid is -1, remove the highest priority item
+	if (tid == -1) {
+		ret_tid = q->queue[q->queue[0].count].entry.tid;
+		q->queue[0].count--;
+	}
+	// If tid is not -1, find the entry with the requested tid and remove it, shifting all others to fill the gap
+	else {
+		bool found = FALSE;
+		int count = q->queue[0].count;
+		for (int i = 1; i <= count; i++) {
+			if (found) {
+				q->queue[i-1].entry.priority = q->queue[i].entry.priority;
+				q->queue[i-1].entry.tid = q->queue[i].entry.tid;
+				continue;
+			}
+			if (q->queue[i].entry.tid == tid) {
+				ret_tid = q->queue[i].entry.tid;
+				found = TRUE;
+				q->queue[0].count--;
+			}
+			
+		}
+	}
+	return ret_tid;
+}
+
+
+
+
+
+
+
+
 

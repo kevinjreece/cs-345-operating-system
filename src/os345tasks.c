@@ -36,6 +36,8 @@ extern int superMode;						// system mode
 extern Semaphore* semaphoreList;			// linked list of active semaphores
 extern Semaphore* taskSems[MAX_TASKS];		// task semaphore
 
+extern PQueue* rq;							// priority queue
+
 
 // **********************************************************************
 // **********************************************************************
@@ -95,6 +97,9 @@ int createTask(char* name,						// task name
 			tcb[tid].stack = malloc(STACK_SIZE * sizeof(int));
 
 			// ?? may require inserting task into "ready" queue
+			enQ(rq, tid, tcb[tid].priority);
+			// printf("In createTask()\n");
+			// printQ(rq);
 
 			if (tid) swapTask();				// do context switch (if not cli)
 			return tid;							// return tcb index (curTask)
@@ -189,6 +194,7 @@ int sysKillTask(int taskId)
 	free(tcb[taskId].argv);
 
 	// ?? delete task from system queues
+	deQ(rq, taskId);
 
 	tcb[taskId].name = 0;			// release tcb slot
 	return 0;

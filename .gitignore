@@ -1,3 +1,5 @@
 *.o
 bin/*.o
 *.out
+test/*
+./test.c

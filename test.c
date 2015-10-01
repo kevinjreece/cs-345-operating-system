@@ -20,16 +20,6 @@ typedef struct {
 	} queue[MAX_SIZE+1];
 } PQueue;
 
-void incrementPQueueCount(PQueue* q) {
-	int c = q->queue[0].count;
-	q->queue[0].count = ++c;
-}
-
-void decrementPQueueCount(PQueue* q) {
-	int c = q->queue[0].count;
-	q->queue[0].count = --c;
-}
-
 void printQ(PQueue* q) {
 	int count = q->queue[0].count;
 	for (int i = count; i > 0; --i) {
@@ -43,13 +33,14 @@ void printQ(PQueue* q) {
 int8 enQ(PQueue* q, int8 priority, int8 tid) {
 	int count = q->queue[0].count;
 
+	// Check if queue is full
 	if (count == MAX_SIZE) { return -1; }
 	
 	// If the queue is empty, put the entry in the first slot
 	if (count == 0) {
 		q->queue[1].entry.priority = priority;
 		q->queue[1].entry.tid = tid;
-		incrementPQueueCount(q);
+		q->queue[0].count++;
 		// printf("Count: %d\tPriority: %d\tTID: %d\n", q->queue[0].count, priority, tid);
 		return tid;
 	}
@@ -59,7 +50,7 @@ int8 enQ(PQueue* q, int8 priority, int8 tid) {
 		if (priority > q->queue[i].entry.priority || i == 0) {
 			q->queue[i+1].entry.priority = priority;
 			q->queue[i+1].entry.tid = tid;
-			incrementPQueueCount(q);
+			q->queue[0].count++;
 			// printf("Count: %d\tPriority: %d\tTID: %d\ti: %d\n", q->queue[0].count, priority, tid, i);
 			return tid;
 		}
@@ -69,7 +60,7 @@ int8 enQ(PQueue* q, int8 priority, int8 tid) {
 		}
 	}
 
-	return tid;
+	return -1;
 }
 
 int8 deQ(PQueue* q, int8 tid) {
@@ -81,7 +72,7 @@ int8 deQ(PQueue* q, int8 tid) {
 	// If tid is -1, remove the highest priority item
 	if (tid == -1) {
 		ret_tid = q->queue[q->queue[0].count].entry.tid;
-		decrementPQueueCount(q);
+		q->queue[0].count--;
 	}
 	// If tid is not -1, find the entry with the requested tid and remove it, shifting all others to fill the gap
 	else {
@@ -96,7 +87,7 @@ int8 deQ(PQueue* q, int8 tid) {
 			if (q->queue[i].entry.tid == tid) {
 				ret_tid = q->queue[i].entry.tid;
 				found = true;
-				decrementPQueueCount(q);
+				q->queue[0].count--;
 			}
 			
 		}
@@ -122,6 +113,8 @@ int main(int argc, char* argv[]) {
 	printf("deQ 3 returns %d\n", deQ(q, 3));
 	printQ(q);
 	printf("deQ 3 returns %d\n", deQ(q, 3));
+	printQ(q);
+	printf("deQ -1 returns %d\n", deQ(q, -1));
 	printQ(q);
 
 	// for (int i = 1; i <= q->queue[0].count; i++) {

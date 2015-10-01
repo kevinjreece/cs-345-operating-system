@@ -66,7 +66,19 @@ enum {PAGE_INIT, PAGE_READ, PAGE_OLD_WRITE, PAGE_NEW_WRITE,
 // ***********************************************************************
 // system structs
 typedef int bool;						// boolean value
-typedef int TID;						// task id
+typedef signed char int8;
+typedef int8 TID;						// task id
+
+// priority queue
+typedef struct {
+	union {
+		int count;
+		struct {
+			TID tid;
+			int8 priority;
+		} entry;
+	} queue[MAX_TASKS + 1];
+} PQueue;
 
 // semaphore
 typedef struct semaphore			// semaphore
@@ -76,6 +88,7 @@ typedef struct semaphore			// semaphore
 	int state;							// semaphore state
 	int type;							// semaphore type
 	int taskNum;						// semaphore creator task #
+	PQueue* q;							// blocked queue
 } Semaphore;
 
 // task control block
@@ -84,7 +97,7 @@ typedef struct							// task control block
 	char* name;							// task name
 	int (*task)(int,char**);		// task address
 	int state;							// task state
-	int priority;						// task priority (project 2)
+	int8 priority;						// task priority (project 2)
 	int argc;							// task argument count (project 1)
 	char** argv;						// task argument pointers (project 1)
 	int signal;							// task signals (project 1)
@@ -228,5 +241,9 @@ unsigned short int *getMemAdr(int va, int rwFlg);
 void outPTE(char* s, int pte);
 int accessPage(int pnum, int frame, int rwnFlg);
 void initLC3Memory(int startFrame, int endFrame);
+
+void printQ(PQueue* q);
+TID enQ(PQueue* q, TID tid, int8 priority);
+TID deQ(PQueue* q, TID tid);
 
 #endif // __os345_h__

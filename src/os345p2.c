@@ -273,3 +273,10 @@ char* myTime(char* svtime)
 	svtime[strlen(svtime)-1] = 0;		// eliminate nl at end
 	return svtime;
 } // end myTime
+
+
+
+
+
+
+
