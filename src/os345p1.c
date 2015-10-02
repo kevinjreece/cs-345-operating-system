@@ -29,6 +29,9 @@
 // power down code from 'os345.h' that indicates the desired behavior.
 
 extern jmp_buf reset_context;
+
+extern TCB tcb[];								// task control block
+extern int curTask;							// current task #
 // -----
 
 
@@ -188,7 +191,7 @@ int P1_shellTask(int argc, char* argv[])
 			{
 				// command found
 				if (background) {
-					createTask(commands[i]->command, commands[i]->func, 5, newArgc, newArgv);
+					createTask(commands[i]->command, commands[i]->func, tcb[curTask].priority, newArgc, newArgv);
 					background = FALSE;
 				}
 				else {
