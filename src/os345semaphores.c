@@ -163,7 +163,7 @@ int semTryLock(Semaphore* s)
 		// binary semaphore
 		// if state is zero, then block task
 
-temp:	// ?? temporary label
+		// ?? temporary label
 		if (s->state == 0)
 		{
 			return 0;
@@ -176,8 +176,12 @@ temp:	// ?? temporary label
 	{
 		// counting semaphore
 		// ?? implement counting semaphore
+		if (s->state <= 0) {
+			return 0;
+		}
 
-		goto temp;
+		s->state--;
+		return 1;
 	}
 } // end semTryLock
 
@@ -265,6 +269,10 @@ bool deleteSemaphore(Semaphore** semaphore)
 			// ?? free all semaphore memory
 			// ?? What should you do if there are tasks in this
 			//    semaphores blocked queue????
+			int i;
+			for (i = 1; i <= sem->q->queue[0].count; i++) { killTask(sem->q->queue[i].entry.tid); }
+
+			
 			free(sem->name);
 			free(sem->q);
 			free(sem);

@@ -101,6 +101,8 @@ int createTask(char* name,						// task name
 			// printf("In createTask()\n");
 			// printQ(rq);
 
+			// printf("\nFinished creating task `%s`\n", tcb[tid].name);
+
 			if (tid) swapTask();				// do context switch (if not cli)
 			return tid;							// return tcb index (curTask)
 		}

@@ -189,6 +189,7 @@ int P1_shellTask(int argc, char* argv[])
 				// command found
 				if (background) {
 					createTask(commands[i]->command, commands[i]->func, 5, newArgc, newArgv);
+					background = FALSE;
 				}
 				else {
 					int retValue = (*commands[i]->func)(newArgc, newArgv);
