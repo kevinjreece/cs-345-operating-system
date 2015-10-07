@@ -52,11 +52,13 @@ int signals(void)
 		{
 			tcb[curTask].signal &= ~mySIGTERM;
 			(*tcb[curTask].sigTermHandler)();
+			return 1;
 		}
 		if (tcb[curTask].signal & mySIGTSTP)
 		{
 			tcb[curTask].signal &= ~mySIGTSTP;
 			(*tcb[curTask].sigTstpHandler)();
+			return 1;
 		}
 	}
 	return 0;

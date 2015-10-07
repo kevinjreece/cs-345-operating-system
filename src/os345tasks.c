@@ -153,7 +153,15 @@ static void exitTask(int taskId)
 
 	// ?? add code here
 
+	if (tcb[taskId].state == S_BLOCKED) {
+		Semaphore* s = tcb[taskId].event;
+		enQ(rq, deQ(s->q, taskId), tcb[taskId].priority);
+		tcb[curTask].event = 0;
+		s->state++;
+	}
+
 	tcb[taskId].state = S_EXIT;			// EXIT task state
+
 	return;
 } // end exitTask
 

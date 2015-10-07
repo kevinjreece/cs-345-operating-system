@@ -112,6 +112,8 @@ int main(int argc, char* argv[])
 			return 0;
 
 		case POWER_DOWN_RESTART:			// restart
+			inBufIndx = 0;
+			inBuffer[0] = 0;
 			powerDown(resetCode);
 			printf("\nRestarting system...\n");
 
@@ -138,7 +140,7 @@ int main(int argc, char* argv[])
 	keyboard = createSemaphore("keyboard", BINARY, 1);
 	tics1sec = createSemaphore("tics1sec", BINARY, 0);
 	tics10thsec = createSemaphore("tics10thsec", BINARY, 0);
-	tics10sec = createSemaphore("tics10sec", BINARY, 0);
+	tics10sec = createSemaphore("tics10sec", COUNTING, 0);
 
 	//?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
