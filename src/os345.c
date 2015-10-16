@@ -86,6 +86,8 @@ time_t oldTime10;					// old 10sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
 PQueue* rq;							// ready priority queue
+deltaClock* dc;						// delta clock
+clock_t dcLastDecTime;
 
 
 // **********************************************************************
@@ -238,7 +240,7 @@ static int dispatcher()
 		case S_NEW:
 		{
 			// new task
-			printf("\nNew Task[%d] %s", curTask, tcb[curTask].name);
+			printf("\nNew Task[%d] %s\n", curTask, tcb[curTask].name);
 			tcb[curTask].state = S_RUNNING;	// set task to run state
 
 			// save kernel context for task SWAP's
@@ -363,11 +365,18 @@ static int initOS()
 	inBufIndx = 0;						// input pointer into input buffer
 	semaphoreList = 0;					// linked list of active semaphores
 	diskMounted = 0;					// disk has been mounted
+	dcLastDecTime = clock();
+	printf("Clocks_per_sec: %f\n", CLOCKS_PER_SEC);
 
 	// malloc ready queue
 	rq = (int*)malloc((MAX_TASKS + 1) * sizeof(int));
 	rq->queue[0].count = 0;
 	if (rq == NULL) return 99;
+
+	// malloc delta clock
+	dc = malloc((MAX_TASKS + 1) * sizeof(dc_entry));
+	dc->clock[0].count = 0;
+	if (dc == NULL) return 100;
 
 	// capture current time
 	lastPollClock = clock();			// last pollClock
@@ -502,7 +511,6 @@ TID deQ(PQueue* q, TID tid) {
 	}
 	return ret_tid;
 }
-
 
 
 

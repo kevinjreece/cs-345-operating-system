@@ -34,12 +34,21 @@ extern Semaphore* parkMutex;						// protect park access
 extern Semaphore* fillSeat[NUM_CARS];			// (signal) seat ready to fill
 extern Semaphore* seatFilled[NUM_CARS];		// (wait) passenger seated
 extern Semaphore* rideOver[NUM_CARS];			// (signal) ride over
-
+extern deltaClock* dc;
+extern TCB tcb[];								// task control block
+extern time_t dcLastDecTime;
 
 // ***********************************************************************
 // project 3 functions and tasks
 void CL3_project3(int, char**);
 void CL3_dc(int, char**);
+int dcMonitorTask(int, char**);
+int timeTask(int, char**);
+void printDC(deltaClock*);
+int insertDC(deltaClock*, int, Semaphore*);
+void decDC(deltaClock*);
+int timeTaskID;
+Semaphore* dcChange;
 
 
 // ***********************************************************************
@@ -76,45 +85,9 @@ int P3_project3(int argc, char* argv[])
 int P3_dc(int argc, char* argv[])
 {
 	printf("\nDelta Clock");
-	// ?? Implement a routine to display the current delta clock contents
-	printf("\nTo Be Implemented!");
+	printDC(dc);
 	return 0;
 } // end CL3_dc
-
-
-/*
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// delta clock command
-int P3_dc(int argc, char* argv[])
-{
-	printf("\nDelta Clock");
-	// ?? Implement a routine to display the current delta clock contents
-	//printf("\nTo Be Implemented!");
-	int i;
-	for (i=0; i<numDeltaClock; i++)
-	{
-		printf("\n%4d%4d  %-20s", i, deltaClock[i].time, deltaClock[i].sem->name);
-	}
-	return 0;
-} // end CL3_dc
-
-
-// ***********************************************************************
-// display all pending events in the delta clock list
-void printDeltaClock(void)
-{
-	int i;
-	for (i=0; i<numDeltaClock; i++)
-	{
-		printf("\n%4d%4d  %-20s", i, deltaClock[i].time, deltaClock[i].sem->name);
-	}
-	return;
-}
 
 
 // ***********************************************************************
@@ -146,50 +119,138 @@ int dcMonitorTask(int argc, char* argv[])
 	// create some test times for event[0-9]
 	int ttime[10] = {
 		90, 300, 50, 170, 340, 300, 50, 300, 40, 110	};
+	Semaphore** event = malloc(10 * sizeof(Semaphore*));
+	dcChange = createSemaphore("dcChange", BINARY, 0);
 
-	for (i=0; i<10; i++)
+	for (i = 0; i < 10; i++)
 	{
 		sprintf(buf, "event[%d]", i);
 		event[i] = createSemaphore(buf, BINARY, 0);
-		insertDeltaClock(ttime[i], event[i]);
+		insertDC(dc, ttime[i], event[i]);
+		// printDC(dc);
 	}
-	printDeltaClock();
+	printDC(dc);
 
-	while (numDeltaClock > 0)
+	while (dc->clock[0].count > 0)
 	{
 		SEM_WAIT(dcChange)
 		flg = 0;
 		for (i=0; i<10; i++)
 		{
-			if (event[i]->state ==1)			{
-					printf("\n  event[%d] signaled", i);
+			if (event[i]->state == 1)			{
+					printf("Event[%d] signaled\n", i);
 					event[i]->state = 0;
 					flg = 1;
 				}
 		}
-		if (flg) printDeltaClock();
+		if (flg) printDC(dc);
 	}
 	printf("\nNo more events in Delta Clock");
 
-	// kill dcMonitorTask
-	tcb[timeTaskID].state = S_EXIT;
+	// kill timeTask
+	killTask(timeTaskID);
 	return 0;
 } // end dcMonitorTask
 
-
 extern Semaphore* tics1sec;
+extern Semaphore* tics10thsec;
 
 // ********************************************************************************************
 // display time every tics1sec
 int timeTask(int argc, char* argv[])
 {
 	char svtime[64];						// ascii current time
+	clock_t currentTime;						// current time
+	dcLastDecTime = clock();
+
 	while (1)
 	{
-		SEM_WAIT(tics1sec)
-		printf("\nTime = %s", myTime(svtime));
+		SEM_WAIT(tics10thsec);
+		printf("\nTime = %s\n", myTime(svtime));
+		currentTime = clock();
+		// printf("Clocks_per_sec: %f\n", CLOCKS_PER_SEC);
+		int diff = currentTime - dcLastDecTime + 100;
+		// printf ("currentTime: %d\tdcLastDecTime: %d\tdelta: %d seconds: %f\n", currentTime, dcLastDecTime, diff, ((float)diff)/CLOCKS_PER_SEC);
+		for (int i = 100000; i < diff; i += ONE_TENTH_SEC) {
+			decDC(dc);
+		}	
+		dcLastDecTime = currentTime;
 	}
 	return 0;
 } // end timeTask
-*/
+
+// ********************************************************************************************
+// print delta clock
+void printDC(deltaClock* c) {
+	int count = c->clock[0].count;
+	int i;
+	for (i = count; i > 0; i--)
+	{
+		int t = c->clock[i].entry.time;
+		char* s = c->clock[i].entry.sem->name;
+		printf("%4d%4d  %-20s\n", i, t, s);
+	}
+	printf("%4d%4d\n", 0, count);
+	return;
+}
+
+// ********************************************************************************************
+// Inserts time and semaphore into the delta clock
+int insertDC(deltaClock* c, int t, Semaphore* sem) {
+	int temp = t;
+	// printf("inserting semaphore `%s`\n", sem->name);
+	int count = c->clock[0].count;
+	// delta clock is empty
+	if (count == 0) {
+		dc_entry entry =  { .time = t, .sem = sem };
+		c->clock[1].entry = entry;
+		c->clock[0].count++;
+		return 1;
+	}
+	// delta clock is full
+	else if (count == MAX_TASKS) {
+		return -1;
+	}
+	// otherwise
+	else {
+		for (int i = count + 1; i > 0; --i) {
+			int delta = temp - c->clock[i - 1].entry.time;
+			// printf("delta = temp - c->clock[i - 1].entry.time: %d = %d - %d\n", delta, temp, c->clock[i - 1].entry.time);
+			if (delta < 0 || i == 1) {// temp < current value => The new value goes in i
+				dc_entry entry = { .time = temp, .sem = sem };
+				c->clock[i].entry = entry;
+				c->clock[0].count++;
+				if (i > 1) {
+					c->clock[i - 1].entry.time = abs(delta);
+				}
+				// printf("Count: %d\tPriority: %d\tTID: %d\ti: %d\n", q->queue[0].count, priority, tid, i);
+				return i;
+			}
+			else {// temp >= curret value => The i - 1 value goes in i
+				c->clock[i].entry = c->clock[i - 1].entry;
+				temp = delta;
+			}
+		}		
+	}
+}
+
+void decDC(deltaClock* c) {
+	int count = c->clock[0].count;
+	if (count == 0) { return; }
+	c->clock[count].entry.time--;
+	while (c->clock[count].entry.time == 0 && count > 0) {
+		SEM_SIGNAL(c->clock[count].entry.sem);
+		c->clock[0].count--;
+		SEM_SIGNAL(dcChange);
+		count = c->clock[0].count;
+	}
+	printf("Decrement Delta Clock:\n");
+	printDC(c);
+	return;
+}
+
+
+
+
+
 

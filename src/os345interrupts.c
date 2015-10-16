@@ -178,7 +178,7 @@ static void timer_isr()
   	if ((currentTime - oldTime1) >= 1)
   	{
 		// signal 1 second
-  	   semSignal(tics1sec);
+  	   	semSignal(tics1sec);
 		oldTime1 += 1;
 		// printf("----------0 second timer_isr\n");
   	}

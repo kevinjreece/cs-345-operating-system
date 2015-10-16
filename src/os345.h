@@ -69,6 +69,10 @@ typedef int bool;						// boolean value
 typedef signed char int8;
 typedef int8 TID;						// task id
 
+typedef unsigned char uint8;
+typedef unsigned short uint16;
+typedef unsigned int uint32;
+
 // priority queue
 typedef struct {
 	union {
@@ -90,6 +94,20 @@ typedef struct semaphore			// semaphore
 	int taskNum;						// semaphore creator task #
 	PQueue* q;							// blocked queue
 } Semaphore;
+
+// delta clock entry
+typedef struct {
+	int time;
+	Semaphore* sem;
+} dc_entry;
+
+// delta clock
+typedef struct {
+	union {
+		int count;
+		dc_entry entry;
+	} clock[MAX_TASKS + 1];
+} deltaClock;
 
 // task control block
 typedef struct							// task control block
@@ -182,6 +200,7 @@ int P2_signal2(int, char**);
 
 int P3_project3(int, char**);
 int P3_dc(int, char**);
+int P3_tdc(int, char**);
 
 int P4_project4(int, char**);
 int P4_dumpFrame(int, char**);

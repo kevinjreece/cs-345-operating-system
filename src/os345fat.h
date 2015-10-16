@@ -3,9 +3,7 @@
 #define __os345fat_h__
 // ***************************************************************************************
 
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef unsigned int uint32;
+
 
 //	size_t	uintptr_t
 
