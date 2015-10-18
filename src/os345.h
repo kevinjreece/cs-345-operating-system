@@ -18,7 +18,7 @@
 // Semaphore directives
 #define SEM_WAIT(s)			semWait(s);
 #define SEM_SIGNAL(s)		semSignal(s);
-#define SEM_TRYLOCK(s)		semTryLock(s);
+#define SEM_TRYLOCK(s)		semTryLock(s)
 
 // ***********************************************************************
 // Miscellaneous directives

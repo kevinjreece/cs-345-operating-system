@@ -87,7 +87,8 @@ clock_t myClkTime;
 clock_t myOldClkTime;
 PQueue* rq;							// ready priority queue
 deltaClock* dc;						// delta clock
-clock_t dcLastDecTime;
+Semaphore* dcMutex;					// controls access to the delta clock
+clock_t dcLastDecTime;				// tracks the last time the delta clock was decremented for catching up if needed
 
 
 // **********************************************************************
@@ -240,7 +241,7 @@ static int dispatcher()
 		case S_NEW:
 		{
 			// new task
-			printf("\nNew Task[%d] %s\n", curTask, tcb[curTask].name);
+			printf("\nNew Task[%d] %s", curTask, tcb[curTask].name);
 			tcb[curTask].state = S_RUNNING;	// set task to run state
 
 			// save kernel context for task SWAP's
@@ -377,6 +378,9 @@ static int initOS()
 	dc = malloc((MAX_TASKS + 1) * sizeof(dc_entry));
 	dc->clock[0].count = 0;
 	if (dc == NULL) return 100;
+
+	// create delta clock mutex
+	dcMutex = createSemaphore("deltaClockMutex", BINARY, 1);
 
 	// capture current time
 	lastPollClock = clock();			// last pollClock
