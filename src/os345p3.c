@@ -50,11 +50,18 @@ Semaphore* canLoadCar;
 Semaphore* isSeatOpen;
 Semaphore* isSeatTaken;
 Semaphore* needDriver;
-Semaphore* isDriverAwake;
+Semaphore* needTicket;
+Semaphore* wakeupDriver;
 Semaphore* isDriverReady;
 Semaphore* canTakeSeat;
 Semaphore* canDriveCar;
+Semaphore* canSellTicket;
 Semaphore* enterPark;
+Semaphore* rideTicket;
+Semaphore* isTicketAvailable;
+Semaphore* ticketTaken;
+Semaphore* canBuyTicket;
+
 #define PARK_WAIT SEM_WAIT(parkMutex)
 #define PARK_SIGNAL SEM_SIGNAL(parkMutex)
 Semaphore* passengerMailbox;
@@ -104,11 +111,17 @@ int P3_project3(int argc, char* argv[])
 	isSeatOpen = createSemaphore("isSeatOpen", BINARY, 0);
 	isSeatTaken = createSemaphore("isSeatTaken", BINARY, 0);
 	needDriver = createSemaphore("needDriver", BINARY, 0);
-	isDriverAwake = createSemaphore("isDriverAwake", BINARY, 0);
+	needTicket = createSemaphore("needTicket", BINARY, 0);
+	wakeupDriver = createSemaphore("wakeupDriver", BINARY, 0);
 	isDriverReady = createSemaphore("isDriverReady", BINARY, 0);
 	canTakeSeat = createSemaphore("canTakeSeat", BINARY, 1);
 	canDriveCar = createSemaphore("canDriveCar", BINARY, 1);
+	canSellTicket = createSemaphore("canSellTicket", BINARY, 1);
 	enterPark = createSemaphore("enterPark", COUNTING, MAX_IN_PARK);
+	rideTicket = createSemaphore("rideTicket", COUNTING, MAX_TICKETS);
+	isTicketAvailable = createSemaphore("isTicketAvailable", BINARY, 0);
+	ticketTaken = createSemaphore("ticketTaken", BINARY, 0);
+	canBuyTicket = createSemaphore("canBuyTicket", BINARY, 1);
 
 	//?? create car, driver, and visitor tasks here
 	// create cars
@@ -137,10 +150,6 @@ int P3_project3(int argc, char* argv[])
 		newArgv[1] = buf2;
 		createTask(buf1, P3_visitorTask, MED_PRIORITY, 2, newArgv);
 	}
-
-	SEM_WAIT(parkMutex);
-	myPark.numInCarLine = myPark.numInPark = 28;
-	SEM_SIGNAL(parkMutex);
 
 	return 0;
 } // end project3
@@ -172,10 +181,10 @@ int P3_carTask(int argc, char* argv[]) {
 			// save passenger mutex
 			passengers[i] = passengerMailbox;				SWAP;
 			if (i == 2) {									SWAP;
-				// signal need driver to drivers
+				// signal need driver to drive
 				SEM_SIGNAL(needDriver);						SWAP;
 				// wake up driver
-				SEM_SIGNAL(isDriverAwake);					SWAP;
+				SEM_SIGNAL(wakeupDriver);					SWAP;
 				// wait for driver
 				SEM_WAIT(isDriverReady);					SWAP;
 				// save driver mutex
@@ -215,7 +224,7 @@ int P3_driverTask(int argc, char* argv[]) {
 	Semaphore* notifyDriver = createSemaphore(buf, BINARY, 0);	SWAP;
 
 	while (1) {												SWAP;
-		SEM_WAIT(isDriverAwake);							SWAP;
+		SEM_WAIT(wakeupDriver);								SWAP;
 		if (SEM_TRYLOCK(needDriver)) {						SWAP;
 			SEM_WAIT(canDriveCar);							SWAP;
 			driverMailbox = notifyDriver;					SWAP;
@@ -229,6 +238,24 @@ int P3_driverTask(int argc, char* argv[]) {
 			PARK_WAIT;										SWAP;
 			myPark.drivers[driverId] = 0;					SWAP;
 			PARK_SIGNAL;									SWAP;
+		}
+		else if (SEM_TRYLOCK(needTicket)) {					SWAP;
+			// wait for can sell ticket
+			SEM_WAIT(canSellTicket);						SWAP;
+			// update park struct with driver status
+			PARK_WAIT;										SWAP;
+			myPark.drivers[driverId] = -1;					SWAP;
+			PARK_SIGNAL;									SWAP;
+			// signal a ticket is available
+			SEM_SIGNAL(isTicketAvailable);					SWAP;
+			// wait for ticket to be taken
+			SEM_WAIT(ticketTaken);							SWAP;
+			// update park struct with driver status
+			PARK_WAIT;										SWAP;
+			myPark.drivers[driverId] = 0;					SWAP;
+			PARK_SIGNAL;									SWAP;
+			// signal can sell ticket
+			SEM_SIGNAL(canSellTicket);						SWAP;
 		}
 		else {												SWAP;
 			break;											SWAP;
@@ -251,39 +278,59 @@ int P3_visitorTask(int argc, char* argv[]) {
 	Semaphore* notifyVisitor = createSemaphore(buf, BINARY, 0);	SWAP;
 
 	// get inside the park
-	SEM_WAIT(enterPark);								SWAP;
+	SEM_WAIT(enterPark);									SWAP;
 	// update park struct to enter park
-	PARK_WAIT;											SWAP;
-	myPark.numOutsidePark--;							SWAP;
-	myPark.numInPark++;									SWAP;
-	myPark.numInCarLine++;								SWAP;
-	PARK_SIGNAL;										SWAP;
+	PARK_WAIT;												SWAP;
+	myPark.numOutsidePark--;								SWAP;
+	myPark.numInPark++;										SWAP;
+	myPark.numInTicketLine++;								SWAP;
+	PARK_SIGNAL;											SWAP;
+	// get a ticket for a tour
+	SEM_WAIT(canBuyTicket);									SWAP;
+	// wait for an available ticket
+	SEM_WAIT(rideTicket);									SWAP;
+	// signal need driver for a ticket
+	SEM_SIGNAL(needTicket);									SWAP;
+	// wake up a driver
+	SEM_SIGNAL(wakeupDriver);								SWAP;
+	// wait for a ticket
+	SEM_WAIT(isTicketAvailable);							SWAP;
+	SEM_SIGNAL(ticketTaken);								SWAP;
+	SEM_SIGNAL(canBuyTicket);								SWAP;
+	// get in line for a tour
+	PARK_WAIT;												SWAP;
+	myPark.numTicketsAvailable--;							SWAP;
+	myPark.numInTicketLine--;								SWAP;
+	myPark.numInCarLine++;									SWAP;
+	PARK_SIGNAL;											SWAP;
 	// take a guided tour			
 	// wait for permission to take seat
-	SEM_WAIT(canTakeSeat);								SWAP;
+	SEM_WAIT(canTakeSeat);									SWAP;
 	// wait for seat open
-	SEM_WAIT(isSeatOpen);								SWAP;
+	SEM_WAIT(isSeatOpen);									SWAP;
 	// put semaphore in mailbox
-	passengerMailbox = notifyVisitor;					SWAP;
+	passengerMailbox = notifyVisitor;						SWAP;
 	// move visitor from line to car in park
-	PARK_WAIT;											SWAP;
-	myPark.numInCarLine--;								SWAP;
-	myPark.numInCars++;									SWAP;
-	PARK_SIGNAL;										SWAP;
+	PARK_WAIT;												SWAP;
+	myPark.numInCarLine--;									SWAP;
+	myPark.numInCars++;										SWAP;
+	PARK_SIGNAL;											SWAP;
 	// take seat
-	SEM_SIGNAL(isSeatTaken);							SWAP;
+	SEM_SIGNAL(isSeatTaken);								SWAP;
 	// signal can take seat
-	SEM_SIGNAL(canTakeSeat);							SWAP;
+	SEM_SIGNAL(canTakeSeat);								SWAP;
 	// wait for ride to be over
-	SEM_WAIT(notifyVisitor);							SWAP;
+	SEM_WAIT(notifyVisitor);								SWAP;
+	SEM_SIGNAL(rideTicket);									SWAP;
 	// update park struct to exit park
-	PARK_WAIT;											SWAP;
-	myPark.numInCars--;									SWAP;
-	myPark.numInPark--;									SWAP;
-	myPark.numExitedPark++;								SWAP;
-	PARK_SIGNAL;										SWAP;
+	PARK_WAIT;												SWAP;
+	myPark.numTicketsAvailable++;							SWAP;
+	myPark.numInCars--;										SWAP;
+	myPark.numInPark--;										SWAP;
+	myPark.numExitedPark++;									SWAP;
+	PARK_SIGNAL;											SWAP;
 	// leave park
-	SEM_SIGNAL(enterPark);								SWAP;
+	SEM_SIGNAL(enterPark);									SWAP;
 
 
 
