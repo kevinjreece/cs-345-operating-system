@@ -34,6 +34,7 @@ extern int superMode;						// system mode
 extern Semaphore* semaphoreList;			// linked list of active semaphores
 
 extern PQueue* rq;							// priority queue
+void printQ(PQueue*);
 
 // **********************************************************************
 // **********************************************************************
@@ -78,7 +79,9 @@ void semSignal(Semaphore* s)
 		// ?? implement counting semaphore
 		s->state++;
 		if (s->state <= 0) {// Are there additional tasks waiting?
-			TID id = enQ(rq, deQ(s->q, -1), tcb[id].priority);
+
+			TID id = deQ(s->q, -1);
+			enQ(rq, id, tcb[id].priority);
 			tcb[id].event = 0;			// clear event pointer
 			tcb[id].state = S_READY;	// unblock task
 

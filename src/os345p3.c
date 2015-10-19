@@ -54,7 +54,9 @@ Semaphore* isDriverAwake;
 Semaphore* isDriverReady;
 Semaphore* canTakeSeat;
 Semaphore* canDriveCar;
-#define PASSENGERS_PER_CAR 3
+Semaphore* enterPark;
+#define PARK_WAIT SEM_WAIT(parkMutex)
+#define PARK_SIGNAL SEM_SIGNAL(parkMutex)
 Semaphore* passengerMailbox;
 Semaphore* driverMailbox;
 int carLoadingId;
@@ -93,6 +95,10 @@ int P3_project3(int argc, char* argv[])
 	while (!parkMutex) SWAP;
 	printf("\nStart Jurassic Park...");
 
+	PARK_WAIT;											
+	myPark.numOutsidePark = NUM_VISITORS;
+	PARK_SIGNAL;
+
 	// create all semaphores
 	canLoadCar = createSemaphore("canLoadCar", BINARY, 1);
 	isSeatOpen = createSemaphore("isSeatOpen", BINARY, 0);
@@ -102,6 +108,7 @@ int P3_project3(int argc, char* argv[])
 	isDriverReady = createSemaphore("isDriverReady", BINARY, 0);
 	canTakeSeat = createSemaphore("canTakeSeat", BINARY, 1);
 	canDriveCar = createSemaphore("canDriveCar", BINARY, 1);
+	enterPark = createSemaphore("enterPark", COUNTING, MAX_IN_PARK);
 
 	//?? create car, driver, and visitor tasks here
 	// create cars
@@ -147,7 +154,7 @@ int P3_carTask(int argc, char* argv[]) {
 	int carId = atoi(argv[1]);								SWAP;
 	printf("\nCAR: %s created with id %d", carName, carId);	SWAP;
 
-	Semaphore* passengers[PASSENGERS_PER_CAR];				SWAP;
+	Semaphore* passengers[NUM_SEATS];						SWAP;
 	Semaphore* driver;										SWAP;
 
 	while (1) {												SWAP;
@@ -155,7 +162,7 @@ int P3_carTask(int argc, char* argv[]) {
 		// wait for car loading to be free
 		SEM_WAIT(canLoadCar);								SWAP;
 		carLoadingId = carId;								SWAP;
-		for (i = 0; i < PASSENGERS_PER_CAR; i++) {			SWAP;
+		for (i = 0; i < NUM_SEATS; i++) {					SWAP;
 			// wait to be told to fill a seat by park
 			SEM_WAIT(fillSeat[carId]);						SWAP;
 			// signal seat open to visitors
@@ -185,7 +192,7 @@ int P3_carTask(int argc, char* argv[]) {
 		// signal driver done
 		SEM_SIGNAL(driver);									SWAP;
 
-		for (i = 0; i < PASSENGERS_PER_CAR; i++) {			SWAP;
+		for (i = 0; i < NUM_SEATS; i++) {					SWAP;
 			// signal passenger ride over
 			SEM_SIGNAL(passengers[i]);						SWAP;
 		}													SWAP;
@@ -205,7 +212,7 @@ int P3_driverTask(int argc, char* argv[]) {
 
 	char buf[32];											SWAP;
 	sprintf(buf, "driverSem[%d]", driverId);				SWAP;
-	Semaphore* notifyDriver = createSemaphore(buf, BINARY, 0);SWAP;
+	Semaphore* notifyDriver = createSemaphore(buf, BINARY, 0);	SWAP;
 
 	while (1) {												SWAP;
 		SEM_WAIT(isDriverAwake);							SWAP;
@@ -213,15 +220,15 @@ int P3_driverTask(int argc, char* argv[]) {
 			SEM_WAIT(canDriveCar);							SWAP;
 			driverMailbox = notifyDriver;					SWAP;
 			// update park struct with driver status
-			SEM_WAIT(parkMutex);							SWAP;
+			PARK_WAIT;										SWAP;
 			myPark.drivers[driverId] = carLoadingId + 1;	SWAP;
-			SEM_SIGNAL(parkMutex);							SWAP;
+			PARK_SIGNAL;									SWAP;
 			SEM_SIGNAL(isDriverReady);						SWAP;
 			SEM_SIGNAL(canDriveCar);						SWAP;
 			SEM_WAIT(notifyDriver);							SWAP;
-			SEM_WAIT(parkMutex);							SWAP;
+			PARK_WAIT;										SWAP;
 			myPark.drivers[driverId] = 0;					SWAP;
-			SEM_SIGNAL(parkMutex);							SWAP;
+			PARK_SIGNAL;									SWAP;
 		}
 		else {												SWAP;
 			break;											SWAP;
@@ -241,35 +248,44 @@ int P3_visitorTask(int argc, char* argv[]) {
 
 	char buf[32];											SWAP;
 	sprintf(buf, "visitorSem[%d]", visitorId);				SWAP;
-	Semaphore* notifyVisitor = createSemaphore(buf, BINARY, 0);SWAP;
+	Semaphore* notifyVisitor = createSemaphore(buf, BINARY, 0);	SWAP;
 
-	while (1) {												SWAP;
-		// take a guided tour			
-		// wait for permission to take seat
-		SEM_WAIT(canTakeSeat);								SWAP;
-		// wait for seat open
-		SEM_WAIT(isSeatOpen);								SWAP;
-		// put semaphore in mailbox
-		passengerMailbox = notifyVisitor;					SWAP;
-		// move visitor from line to car in park
-		SEM_WAIT(parkMutex);								SWAP;
-		myPark.numInCarLine--;								SWAP;
-		myPark.numInCars++;									SWAP;
-		SEM_SIGNAL(parkMutex);								SWAP;
-		// take seat
-		SEM_SIGNAL(isSeatTaken);							SWAP;
-		// signal can take seat
-		SEM_SIGNAL(canTakeSeat);							SWAP;
-		// wait for ride to be over
-		SEM_WAIT(notifyVisitor);							SWAP;
-		// move to gift shop line
-		SEM_WAIT(parkMutex);								SWAP;
-		myPark.numInCars--;									SWAP;
-		myPark.numInGiftLine++;								SWAP;
-		SEM_SIGNAL(parkMutex);								SWAP;
-		// wait to go to gift shop line
+	// get inside the park
+	SEM_WAIT(enterPark);								SWAP;
+	// update park struct to enter park
+	PARK_WAIT;											SWAP;
+	myPark.numOutsidePark--;							SWAP;
+	myPark.numInPark++;									SWAP;
+	myPark.numInCarLine++;								SWAP;
+	PARK_SIGNAL;										SWAP;
+	// take a guided tour			
+	// wait for permission to take seat
+	SEM_WAIT(canTakeSeat);								SWAP;
+	// wait for seat open
+	SEM_WAIT(isSeatOpen);								SWAP;
+	// put semaphore in mailbox
+	passengerMailbox = notifyVisitor;					SWAP;
+	// move visitor from line to car in park
+	PARK_WAIT;											SWAP;
+	myPark.numInCarLine--;								SWAP;
+	myPark.numInCars++;									SWAP;
+	PARK_SIGNAL;										SWAP;
+	// take seat
+	SEM_SIGNAL(isSeatTaken);							SWAP;
+	// signal can take seat
+	SEM_SIGNAL(canTakeSeat);							SWAP;
+	// wait for ride to be over
+	SEM_WAIT(notifyVisitor);							SWAP;
+	// update park struct to exit park
+	PARK_WAIT;											SWAP;
+	myPark.numInCars--;									SWAP;
+	myPark.numInPark--;									SWAP;
+	myPark.numExitedPark++;								SWAP;
+	PARK_SIGNAL;										SWAP;
+	// leave park
+	SEM_SIGNAL(enterPark);								SWAP;
 
-	}
+
 
 	return 0;
 }
