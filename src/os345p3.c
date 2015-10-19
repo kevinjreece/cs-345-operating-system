@@ -61,7 +61,8 @@ Semaphore* rideTicket;
 Semaphore* isTicketAvailable;
 Semaphore* ticketTaken;
 Semaphore* canBuyTicket;
-
+Semaphore* inMuseum;
+Semaphore* inGiftShop;
 #define PARK_WAIT SEM_WAIT(parkMutex)
 #define PARK_SIGNAL SEM_SIGNAL(parkMutex)
 Semaphore* passengerMailbox;
@@ -122,6 +123,8 @@ int P3_project3(int argc, char* argv[])
 	isTicketAvailable = createSemaphore("isTicketAvailable", BINARY, 0);
 	ticketTaken = createSemaphore("ticketTaken", BINARY, 0);
 	canBuyTicket = createSemaphore("canBuyTicket", BINARY, 1);
+	inMuseum = createSemaphore("inMuseum", COUNTING, MAX_IN_MUSEUM);
+	inGiftShop = createSemaphore("inGiftShop", COUNTING, MAX_IN_GIFTSHOP);
 
 	//?? create car, driver, and visitor tasks here
 	// create cars
@@ -297,10 +300,26 @@ int P3_visitorTask(int argc, char* argv[]) {
 	SEM_WAIT(isTicketAvailable);							SWAP;
 	SEM_SIGNAL(ticketTaken);								SWAP;
 	SEM_SIGNAL(canBuyTicket);								SWAP;
-	// get in line for a tour
+	
+	// get in line for the museum
 	PARK_WAIT;												SWAP;
 	myPark.numTicketsAvailable--;							SWAP;
 	myPark.numInTicketLine--;								SWAP;
+	myPark.numInMuseumLine++;								SWAP;
+	PARK_SIGNAL;											SWAP;
+	// wait to get in museum
+	SEM_WAIT(inMuseum);										SWAP;
+
+	// get into the museum
+	PARK_WAIT;												SWAP;
+	myPark.numInMuseumLine--;								SWAP;
+	myPark.numInMuseum++;									SWAP;
+	PARK_SIGNAL;											SWAP;
+	SEM_SIGNAL(inMuseum);									SWAP;
+
+	// get in line for a tour
+	PARK_WAIT;												SWAP;
+	myPark.numInMuseum--;									SWAP;
 	myPark.numInCarLine++;									SWAP;
 	PARK_SIGNAL;											SWAP;
 	// take a guided tour			
@@ -321,11 +340,27 @@ int P3_visitorTask(int argc, char* argv[]) {
 	SEM_SIGNAL(canTakeSeat);								SWAP;
 	// wait for ride to be over
 	SEM_WAIT(notifyVisitor);								SWAP;
+	// return ticket
 	SEM_SIGNAL(rideTicket);									SWAP;
+	
+
+	PARK_WAIT;												SWAP;
+	myPark.numInCars--;										SWAP;
+	myPark.numTicketsAvailable++;							SWAP;
+	myPark.numInGiftLine++;									SWAP;
+	PARK_SIGNAL;											SWAP;
+
+	SEM_WAIT(inGiftShop);									SWAP;
+
+	PARK_WAIT;												SWAP;
+	myPark.numInGiftLine--;									SWAP;
+	myPark.numInGiftShop++;									SWAP;
+	PARK_SIGNAL;											SWAP;
+	SEM_SIGNAL(inGiftShop);									SWAP;
+
 	// update park struct to exit park
 	PARK_WAIT;												SWAP;
-	myPark.numTicketsAvailable++;							SWAP;
-	myPark.numInCars--;										SWAP;
+	myPark.numInGiftShop--;									SWAP;
 	myPark.numInPark--;										SWAP;
 	myPark.numExitedPark++;									SWAP;
 	PARK_SIGNAL;											SWAP;
