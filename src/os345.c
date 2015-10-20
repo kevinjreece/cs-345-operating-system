@@ -367,7 +367,6 @@ static int initOS()
 	semaphoreList = 0;					// linked list of active semaphores
 	diskMounted = 0;					// disk has been mounted
 	dcLastDecTime = clock();
-	printf("Clocks_per_sec: %f\n", CLOCKS_PER_SEC);
 
 	// malloc ready queue
 	rq = (int*)malloc((MAX_TASKS + 1) * sizeof(int));

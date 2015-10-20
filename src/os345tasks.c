@@ -62,7 +62,7 @@ int createTask(char* name,						// task name
 
 			sprintf(buf, "task%d", tid);
 			taskSems[tid] = createSemaphore(buf, 0, 0);
-			taskSems[tid]->taskNum = 0;	// assign to shell
+			taskSems[tid]->taskNum = tid;	// assign to shell
 
 			// copy task name
 			tcb[tid].name = (char*)malloc(strlen(name)+1);

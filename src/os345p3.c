@@ -36,6 +36,7 @@ extern Semaphore* fillSeat[NUM_CARS];			// (signal) seat ready to fill
 extern Semaphore* seatFilled[NUM_CARS];		// (wait) passenger seated
 extern Semaphore* rideOver[NUM_CARS];			// (signal) ride over
 extern TCB tcb[];								// task control block
+extern int curTask;							// current task #
 
 extern deltaClock* dc;
 extern Semaphore* dcMutex;
@@ -65,6 +66,7 @@ Semaphore* inMuseum;
 Semaphore* inGiftShop;
 #define PARK_WAIT SEM_WAIT(parkMutex)
 #define PARK_SIGNAL SEM_SIGNAL(parkMutex)
+#define MAX_WAIT 30
 Semaphore* passengerMailbox;
 Semaphore* driverMailbox;
 int carLoadingId;
@@ -73,6 +75,7 @@ int carLoadingId;
 // project 3 delta clock functions and tasks
 int dcMonitorTask(int, char**);
 int timeTask(int, char**);
+void randomWait(Semaphore*, int);
 void printDC(deltaClock*);
 int insertDC(deltaClock*, int, Semaphore*);
 void decDC(deltaClock*);
@@ -85,74 +88,83 @@ Semaphore* dcChange;
 // project3 command
 int P3_project3(int argc, char* argv[])
 {
-	int i;
-	char buf1[32];
-	char buf2[32];
-	char* newArgv[2];
+	srand(time(NULL));										SWAP;
+	int i;													SWAP;
+	char buf1[32];											SWAP;
+	char buf2[32];											SWAP;
+	char* newArgv[2];										SWAP;
+
+	int numVisitors = argc > 1 ? atoi(argv[1]) : NUM_VISITORS;SWAP;
 
 	// start park
-	sprintf(buf1, "jurassicPark");
-	newArgv[0] = buf1;
+	sprintf(buf1, "jurassicPark");							SWAP;
+	newArgv[0] = buf1;										SWAP;
 	createTask( buf1,				// task name
 		jurassicTask,				// task
 		MED_PRIORITY,				// task priority
 		1,							// task count
-		newArgv);					// task argument
+		newArgv);					SWAP;// task argument
+
+	timeTaskID = createTask( "timeTask",		// task name
+		timeTask,	// task
+		MED_PRIORITY,			// task priority
+		argc,			// task arguments
+		argv);												SWAP;
 
 	// wait for park to get initialized...
 	while (!parkMutex) SWAP;
-	printf("\nStart Jurassic Park...");
+	printf("\nStart Jurassic Park...");						SWAP;
 
-	PARK_WAIT;											
-	myPark.numOutsidePark = NUM_VISITORS;
-	PARK_SIGNAL;
+	PARK_WAIT;												SWAP;
+	myPark.numOutsidePark = numVisitors;					SWAP;
+	PARK_SIGNAL;											SWAP;
 
 	// create all semaphores
-	canLoadCar = createSemaphore("canLoadCar", BINARY, 1);
-	isSeatOpen = createSemaphore("isSeatOpen", BINARY, 0);
-	isSeatTaken = createSemaphore("isSeatTaken", BINARY, 0);
-	needDriver = createSemaphore("needDriver", BINARY, 0);
-	needTicket = createSemaphore("needTicket", BINARY, 0);
-	wakeupDriver = createSemaphore("wakeupDriver", BINARY, 0);
-	isDriverReady = createSemaphore("isDriverReady", BINARY, 0);
-	canTakeSeat = createSemaphore("canTakeSeat", BINARY, 1);
-	canDriveCar = createSemaphore("canDriveCar", BINARY, 1);
-	canSellTicket = createSemaphore("canSellTicket", BINARY, 1);
-	enterPark = createSemaphore("enterPark", COUNTING, MAX_IN_PARK);
-	rideTicket = createSemaphore("rideTicket", COUNTING, MAX_TICKETS);
-	isTicketAvailable = createSemaphore("isTicketAvailable", BINARY, 0);
-	ticketTaken = createSemaphore("ticketTaken", BINARY, 0);
-	canBuyTicket = createSemaphore("canBuyTicket", BINARY, 1);
-	inMuseum = createSemaphore("inMuseum", COUNTING, MAX_IN_MUSEUM);
-	inGiftShop = createSemaphore("inGiftShop", COUNTING, MAX_IN_GIFTSHOP);
+	canLoadCar = createSemaphore("canLoadCar", BINARY, 1);	SWAP;
+	isSeatOpen = createSemaphore("isSeatOpen", BINARY, 0);	SWAP;
+	isSeatTaken = createSemaphore("isSeatTaken", BINARY, 0);SWAP;
+	needDriver = createSemaphore("needDriver", BINARY, 0);	SWAP;
+	needTicket = createSemaphore("needTicket", BINARY, 0);	SWAP;
+	wakeupDriver = createSemaphore("wakeupDriver", BINARY, 0);SWAP;
+	isDriverReady = createSemaphore("isDriverReady", BINARY, 0);SWAP;
+	canTakeSeat = createSemaphore("canTakeSeat", BINARY, 1);SWAP;
+	canDriveCar = createSemaphore("canDriveCar", BINARY, 1);SWAP;
+	canSellTicket = createSemaphore("canSellTicket", BINARY, 1);SWAP;
+	enterPark = createSemaphore("enterPark", COUNTING, MAX_IN_PARK);SWAP;
+	rideTicket = createSemaphore("rideTicket", COUNTING, MAX_TICKETS);SWAP;
+	isTicketAvailable = createSemaphore("isTicketAvailable", BINARY, 0);SWAP;
+	ticketTaken = createSemaphore("ticketTaken", BINARY, 0);SWAP;
+	canBuyTicket = createSemaphore("canBuyTicket", BINARY, 1);SWAP;
+	inMuseum = createSemaphore("inMuseum", COUNTING, MAX_IN_MUSEUM);SWAP;
+	inGiftShop = createSemaphore("inGiftShop", COUNTING, MAX_IN_GIFTSHOP);SWAP;
 
 	//?? create car, driver, and visitor tasks here
 	// create cars
-	for (i = 0; i < NUM_CARS; i++) {
-		sprintf(buf1, "carTask[%d]", i);
-		newArgv[0] = buf1;
-		sprintf(buf2, "%d", i);
-		newArgv[1] = buf2;
-		createTask(buf1, P3_carTask, MED_PRIORITY, 2, newArgv);
+	for (i = 0; i < NUM_CARS; i++) {						SWAP;
+		sprintf(buf1, "carTask[%d]", i);					SWAP;
+		newArgv[0] = buf1;									SWAP;
+		sprintf(buf2, "%d", i);								SWAP;
+		newArgv[1] = buf2;									SWAP;
+		createTask(buf1, P3_carTask, MED_PRIORITY, 2, newArgv);SWAP;
 	}
 
 	// create drivers
-	for (i = 0; i < NUM_DRIVERS; i++) {
-		sprintf(buf1, "driverTask[%d]", i);
-		newArgv[0] = buf1;
-		sprintf(buf2, "%d", i);
-		newArgv[1] = buf2;
-		createTask(buf1, P3_driverTask, MED_PRIORITY, 2, newArgv);
+	for (i = 0; i < NUM_DRIVERS; i++) {						SWAP;
+		sprintf(buf1, "driverTask[%d]", i);					SWAP;
+		newArgv[0] = buf1;									SWAP;
+		sprintf(buf2, "%d", i);								SWAP;
+		newArgv[1] = buf2;									SWAP;
+		createTask(buf1, P3_driverTask, MED_PRIORITY, 2, newArgv);SWAP;
 	}
 
 	// create visitors
-	for (i = 0; i < NUM_VISITORS; i++) {
-		sprintf(buf1, "visitorTask[%d]", i);
-		newArgv[0] = buf1;
-		sprintf(buf2, "%d", i);
-		newArgv[1] = buf2;
-		createTask(buf1, P3_visitorTask, MED_PRIORITY, 2, newArgv);
-	}
+	for (i = 0; i < numVisitors; i++) {						SWAP;
+		sprintf(buf1, "visitorTask[%d]", i);				SWAP;
+		newArgv[0] = buf1;									SWAP;
+		sprintf(buf2, "%d", i);								SWAP;
+		newArgv[1] = buf2;									SWAP;
+		createTask(buf1, P3_visitorTask, MED_PRIORITY, 2, newArgv);SWAP;
+	}														SWAP;
 
 	return 0;
 } // end project3
@@ -183,7 +195,7 @@ int P3_carTask(int argc, char* argv[]) {
 			SEM_WAIT(isSeatTaken);							SWAP;
 			// save passenger mutex
 			passengers[i] = passengerMailbox;				SWAP;
-			if (i == 2) {									SWAP;
+			if (i == NUM_SEATS - 1) {						SWAP;
 				// signal need driver to drive
 				SEM_SIGNAL(needDriver);						SWAP;
 				// wake up driver
@@ -195,7 +207,7 @@ int P3_carTask(int argc, char* argv[]) {
 			}												SWAP;
 			// signal passenger seated to park
 			SEM_SIGNAL(seatFilled[carId]);					SWAP;
-		}
+		}													SWAP;
 		carLoadingId = -1;									SWAP;
 		// signal done with car loading
 		SEM_SIGNAL(canLoadCar);								SWAP;
@@ -261,7 +273,7 @@ int P3_driverTask(int argc, char* argv[]) {
 			SEM_SIGNAL(canSellTicket);						SWAP;
 		}
 		else {												SWAP;
-			break;											SWAP;
+			break;
 		}													SWAP;
 		
 	}														SWAP;
@@ -280,6 +292,8 @@ int P3_visitorTask(int argc, char* argv[]) {
 	sprintf(buf, "visitorSem[%d]", visitorId);				SWAP;
 	Semaphore* notifyVisitor = createSemaphore(buf, BINARY, 0);	SWAP;
 
+	// wait before entering the park
+	randomWait(notifyVisitor, MAX_WAIT);					SWAP;
 	// get inside the park
 	SEM_WAIT(enterPark);									SWAP;
 	// update park struct to enter park
@@ -288,6 +302,8 @@ int P3_visitorTask(int argc, char* argv[]) {
 	myPark.numInPark++;										SWAP;
 	myPark.numInTicketLine++;								SWAP;
 	PARK_SIGNAL;											SWAP;
+	// wait before requesting a ticket
+	randomWait(notifyVisitor, MAX_WAIT);					SWAP;
 	// get a ticket for a tour
 	SEM_WAIT(canBuyTicket);									SWAP;
 	// wait for an available ticket
@@ -300,13 +316,17 @@ int P3_visitorTask(int argc, char* argv[]) {
 	SEM_WAIT(isTicketAvailable);							SWAP;
 	SEM_SIGNAL(ticketTaken);								SWAP;
 	SEM_SIGNAL(canBuyTicket);								SWAP;
-	
+
 	// get in line for the museum
 	PARK_WAIT;												SWAP;
 	myPark.numTicketsAvailable--;							SWAP;
 	myPark.numInTicketLine--;								SWAP;
 	myPark.numInMuseumLine++;								SWAP;
 	PARK_SIGNAL;											SWAP;
+
+	// wait before trying to entering museum
+	randomWait(notifyVisitor, MAX_WAIT);					SWAP;
+
 	// wait to get in museum
 	SEM_WAIT(inMuseum);										SWAP;
 
@@ -315,6 +335,7 @@ int P3_visitorTask(int argc, char* argv[]) {
 	myPark.numInMuseumLine--;								SWAP;
 	myPark.numInMuseum++;									SWAP;
 	PARK_SIGNAL;											SWAP;
+
 	SEM_SIGNAL(inMuseum);									SWAP;
 
 	// get in line for a tour
@@ -343,13 +364,14 @@ int P3_visitorTask(int argc, char* argv[]) {
 	// return ticket
 	SEM_SIGNAL(rideTicket);									SWAP;
 	
-
 	PARK_WAIT;												SWAP;
 	myPark.numInCars--;										SWAP;
 	myPark.numTicketsAvailable++;							SWAP;
 	myPark.numInGiftLine++;									SWAP;
 	PARK_SIGNAL;											SWAP;
 
+	// wait before trying to get in gift shop
+	randomWait(notifyVisitor, MAX_WAIT);					SWAP;
 	SEM_WAIT(inGiftShop);									SWAP;
 
 	PARK_WAIT;												SWAP;
@@ -367,9 +389,13 @@ int P3_visitorTask(int argc, char* argv[]) {
 	// leave park
 	SEM_SIGNAL(enterPark);									SWAP;
 
-
-
 	return 0;
+}
+
+void randomWait(Semaphore* s, int max) {					SWAP;
+	int r = (rand() % max) + 1;								SWAP;
+	insertDC(dc, r, s);										SWAP;
+	SEM_WAIT(s);											SWAP;
 }
 
 // ***********************************************************************
@@ -449,81 +475,80 @@ extern Semaphore* tics10thsec;
 // display time every tics10thsec
 int timeTask(int argc, char* argv[])
 {
-	char svtime[64];						// ascii current time
-	clock_t currentTime;						// current time
-	dcLastDecTime = clock();
+	char svtime[64];										SWAP;// ascii current time
+	clock_t currentTime;									SWAP;// current time
+	dcLastDecTime = clock();								SWAP;
 
 	while (1)
-	{
-		SEM_WAIT(tics10thsec);
+	{														SWAP;
+		SEM_WAIT(tics10thsec);								SWAP;
 		// printf("\nTime = %s\n", myTime(svtime));
-		currentTime = clock();
+		currentTime = clock();								SWAP;
 		// printf("Clocks_per_sec: %f\n", CLOCKS_PER_SEC);
-		int diff = currentTime - dcLastDecTime + 100;
+		int diff = currentTime - dcLastDecTime + 100;		SWAP;
 		// printf ("currentTime: %d\tdcLastDecTime: %d\tdelta: %d seconds: %f\n", currentTime, dcLastDecTime, diff, ((float)diff)/CLOCKS_PER_SEC);
-		for (int i = 100000; i < diff; i += ONE_TENTH_SEC) {
-			decDC(dc);
-		}	
-		dcLastDecTime = currentTime;
-	}
+		for (int i = 100000; i < diff; i += ONE_TENTH_SEC) {SWAP;
+			decDC(dc);										SWAP;
+		}													SWAP;
+		dcLastDecTime = currentTime;						SWAP;
+	}														SWAP;
 	return 0;
 } // end timeTask
 
 // ********************************************************************************************
 // print delta clock
 void printDC(deltaClock* c) {
-	SEM_WAIT(dcMutex);
-	int count = c->clock[0].count;
-	int i;
-	for (i = count; i > 0; i--)
-	{
-		int t = c->clock[i].entry.time;
-		char* s = c->clock[i].entry.sem->name;
-		printf("\n%4d%4d  %-20s", i, t, s);
-	}
-	printf("\n%4d%4d", 0, count);
-	SEM_SIGNAL(dcMutex);
+	SEM_WAIT(dcMutex);										SWAP;
+	int count = c->clock[0].count;							SWAP;
+	int i;													SWAP;
+	for (i = count; i > 0; i--)								
+	{														SWAP;
+		int t = c->clock[i].entry.time;						SWAP;
+		char* s = c->clock[i].entry.sem->name;				SWAP;
+		printf("\n%4d%4d  %-20s", i, t, s);					SWAP;
+	}														SWAP;
+	printf("\n%4d%4d", 0, count);							SWAP;
+	SEM_SIGNAL(dcMutex);									SWAP;
 	return;
 }
 
 // ********************************************************************************************
 // Inserts time and semaphore into the delta clock
-int insertDC(deltaClock* c, int t, Semaphore* sem) {
-	SEM_WAIT(dcMutex);
-	int temp = t;
-	// printf("inserting semaphore `%s`\n", sem->name);
-	int count = c->clock[0].count;
+int insertDC(deltaClock* c, int t, Semaphore* sem) {		SWAP;
+	SEM_WAIT(dcMutex);										SWAP;
+	int temp = t;											SWAP;
+	int count = c->clock[0].count;							SWAP;
 	// delta clock is empty
-	if (count == 0) {
-		dc_entry entry =  { .time = t, .sem = sem };
-		c->clock[1].entry = entry;
-		c->clock[0].count++;
-		SEM_SIGNAL(dcMutex);
+	if (count == 0) {										SWAP;
+		dc_entry entry =  { .time = t, .sem = sem };		SWAP;
+		c->clock[1].entry = entry;							SWAP;
+		c->clock[0].count++;								SWAP;
+		SEM_SIGNAL(dcMutex);								SWAP;
 		return 1;
 	}
 	// delta clock is full
-	else if (count == MAX_TASKS) {
-		SEM_SIGNAL(dcMutex);
+	else if (count == MAX_TASKS) {							SWAP;
+		SEM_SIGNAL(dcMutex);								SWAP;
 		return -1;
 	}
 	// otherwise
-	else {
-		for (int i = count + 1; i > 0; --i) {
-			int delta = temp - c->clock[i - 1].entry.time;
+	else {													SWAP;
+		for (int i = count + 1; i > 0; --i) {				SWAP;
+			int delta = temp - c->clock[i - 1].entry.time;	SWAP;
 			// printf("\ndelta = temp - c->clock[i - 1].entry.time: %d = %d - %d", delta, temp, c->clock[i - 1].entry.time);
 			if (delta < 0 || i == 1) {// (temp < current value) => The new value goes in i
-				dc_entry entry = { .time = temp, .sem = sem };
-				c->clock[i].entry = entry;
-				c->clock[0].count++;
-				if (i > 1) {
-					c->clock[i - 1].entry.time = abs(delta);
-				}
-				SEM_SIGNAL(dcMutex);
+				dc_entry entry = { .time = temp, .sem = sem };SWAP;
+				c->clock[i].entry = entry;					SWAP;
+				c->clock[0].count++;						SWAP;
+				if (i > 1) {								SWAP;
+					c->clock[i - 1].entry.time = abs(delta);SWAP;
+				}											SWAP;
+				SEM_SIGNAL(dcMutex);						SWAP;
 				return i;
 			}
 			else {// (temp >= curret value) => The i - 1 value goes in i
-				c->clock[i].entry = c->clock[i - 1].entry;
-				temp = delta;
+				c->clock[i].entry = c->clock[i - 1].entry;	SWAP;
+				temp = delta;								SWAP;
 			}
 		}		
 	}
@@ -531,21 +556,20 @@ int insertDC(deltaClock* c, int t, Semaphore* sem) {
 
 // ********************************************************************************************
 // decrements the top value of the delta clock
-void decDC(deltaClock* c) {
-	SEM_WAIT(dcMutex);
-	int count = c->clock[0].count;
+void decDC(deltaClock* c) {									SWAP;
+	// printDC(c);									
+	SEM_WAIT(dcMutex);										SWAP;
+	int count = c->clock[0].count;							SWAP;
 
-	if (count == 0) { return; }
-	c->clock[count].entry.time--;
-	while (c->clock[count].entry.time == 0 && count > 0) {
-		SEM_SIGNAL(c->clock[count].entry.sem);
-		c->clock[0].count--;
-		SEM_SIGNAL(dcChange);
-		count = c->clock[0].count;
-	}
-	// printf("Decrement Delta Clock:\n");
-	// printDC(c);
-	SEM_SIGNAL(dcMutex);
+	if (count == 0) { SEM_SIGNAL(dcMutex); SWAP; return; }		
+	c->clock[count].entry.time--;							SWAP;
+	while (c->clock[count].entry.time == 0 && count > 0) {	SWAP;
+		SEM_SIGNAL(c->clock[count].entry.sem);				SWAP;
+		c->clock[0].count--;								SWAP;
+		// SEM_SIGNAL(dcChange);
+		count = c->clock[0].count;							SWAP;
+	}														SWAP;
+	SEM_SIGNAL(dcMutex);									SWAP;
 	return;
 }
 
