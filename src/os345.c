@@ -90,6 +90,9 @@ deltaClock* dc;						// delta clock
 Semaphore* dcMutex;					// controls access to the delta clock
 clock_t dcLastDecTime;				// tracks the last time the delta clock was decremented for catching up if needed
 
+#define MAX_TIME_SHARES 1024
+
+
 
 // **********************************************************************
 // **********************************************************************
@@ -180,6 +183,56 @@ int main(int argc, char* argv[])
 } // end main
 
 
+void distributeTimeShares(int id, int shares) {
+	int* children = malloc(25 * sizeof(int));
+	int num_children = getChildren(id, children);
+
+	int shares_per_child = shares / (num_children + 1);
+	int excess = shares % (num_children + 1);
+	tcb[id].time_shares = shares_per_child + excess;
+
+	for (int i = 0; i < num_children; i++) {
+		distributeTimeShares(children[i], shares_per_child);
+	}
+
+	free(children);
+}
+
+int getChildren(int id, int* children) {
+	int count = 0;
+	for (int i = 0; i < MAX_TASKS; i++) {
+		if (tcb[i].name) {
+			if (tcb[i].parent == id && i != id) {
+				children[count++] = i;
+			}
+		}
+	}
+	return count;
+}
+
+int getNextFairTask() {
+	// printf("getNextFairTask\n");
+	int argc = 0;
+	char** argv = 0;
+	int count = rq->queue[0].count;
+	if (count == 0) { return -1; }
+
+	for (int i = 0; i < count; i++) {
+		// printf("i = %d", i);
+		int entry_id = rq->queue[i + 1].entry.tid;
+		// printf("looking at element %d\n", entry_id);
+		if (tcb[entry_id].time_shares > 0) {
+			return entry_id;
+		}
+	}
+	distributeTimeShares(0, MAX_TIME_SHARES);
+	return rq->queue[rq->queue[0].count].entry.tid;
+}
+
+int getRoundRobinPriorityTask() {
+	return deQ(rq, -1);
+}
+
 
 // **********************************************************************
 // **********************************************************************
@@ -202,23 +255,24 @@ static int scheduler()
 	// ?? you thinking about scheduling.  You must implement code to handle
 	// ?? priorities, clean up dead tasks, and handle semaphores appropriately.
 
-
-	if ((nextTask = deQ(rq, -1)) >= 0) {
-		enQ(rq, nextTask, tcb[nextTask].priority);
+	if (scheduler_mode == 0) {
+		if ((nextTask = getRoundRobinPriorityTask()) >= 0) {
+			enQ(rq, nextTask, tcb[nextTask].priority);
+		}
+		else {
+			return -1;
+		}
 	}
 	else {
-		return -1;
+		if ((nextTask = getNextFairTask()) >= 0) {
+			tcb[nextTask].time_shares--;
+		}
+		else {
+			return -1;
+		}	
 	}
 
-	// // schedule next task
-	// nextTask = ++curTask;
-
-	// // mask sure nextTask is valid
-	// while (!tcb[nextTask].name)
-	// {
-	// 	if (++nextTask >= MAX_TASKS) nextTask = 0;
-	// }
-
+	
 
 	if (tcb[nextTask].signal & mySIGSTOP) return -1;
 
