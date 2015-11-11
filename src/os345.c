@@ -211,9 +211,6 @@ int getChildren(int id, int* children) {
 }
 
 int getNextFairTask() {
-	// printf("getNextFairTask\n");
-	int argc = 0;
-	char** argv = 0;
 	int count = rq->queue[0].count;
 	if (count == 0) { return -1; }
 
@@ -231,6 +228,21 @@ int getNextFairTask() {
 
 int getRoundRobinPriorityTask() {
 	return deQ(rq, -1);
+}
+
+void reassignChildren(int id) {
+	int* children = malloc(64 * sizeof(int));
+	int num_children = getChildren(id, children);
+	if (num_children == 0) {
+		return;
+	}
+	
+	int new_parent = children[0];
+	tcb[new_parent].parent = tcb[id].parent;
+
+	for (int i = 1; i < num_children; i++) {
+		tcb[children[i]].parent = new_parent;
+	}
 }
 
 
@@ -568,6 +580,8 @@ TID deQ(PQueue* q, TID tid) {
 	}
 	return ret_tid;
 }
+
+
 
 
 

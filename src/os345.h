@@ -163,6 +163,8 @@ void semSignal(Semaphore*);
 int semWait(Semaphore*);
 int semTryLock(Semaphore*);
 
+void reassignChildren(int id);
+
 
 // ***********************************************************************
 #define POWER_UP					0

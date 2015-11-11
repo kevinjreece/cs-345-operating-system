@@ -179,6 +179,9 @@ int sysKillTask(int taskId)
 	assert("sysKillTask Error" && tcb[taskId].name && superMode);
 	printf("\nKill Task %s", tcb[taskId].name);
 
+	// reassign children
+	reassignChildren(taskId);
+
 	// signal task terminated
 	semSignal(taskSems[taskId]);
 
@@ -207,5 +210,7 @@ int sysKillTask(int taskId)
 	deQ(rq, taskId);
 
 	tcb[taskId].name = 0;			// release tcb slot
+	
+
 	return 0;
 } // end sysKillTask
