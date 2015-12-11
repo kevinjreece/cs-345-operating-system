@@ -87,7 +87,7 @@ int createTask(char* name,						// task name
 			tcb[tid].argv = temp_argv;			// argument pointers
 
 			tcb[tid].event = 0;				// suspend semaphore
-			tcb[tid].RPT = 0;					// root page table (project 5)
+			tcb[tid].RPT = 0x2400 + (tid ? (tid + 1) << 6 : 0);					// root page table (project 5)
 			tcb[tid].cdir = CDIR;			// inherit parent cDir (project 6)
 
 			// define task signals
@@ -181,6 +181,7 @@ int sysKillTask(int taskId)
 
 	// reassign children
 	reassignChildren(taskId);
+	// killChildren(taskId);
 
 	// signal task terminated
 	semSignal(taskSems[taskId]);

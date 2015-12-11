@@ -199,7 +199,7 @@ int groupReportTask(int argc, char* argv[])
 		for (i=0; i<NUM_PARENTS; i++)
 		{
 //			printf("%10ld", group_count[i]);
-			printf("%10ld (%d%%)", group_count[i], (group_count[i] * 100) / sum);
+			printf("%10ld (%ld%%)", group_count[i], (group_count[i] * 100) / sum);
 			group_count[i] = 0;
 		}
 

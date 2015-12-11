@@ -183,21 +183,6 @@ int main(int argc, char* argv[])
 } // end main
 
 
-void distributeTimeShares(int id, int shares) {
-	int* children = malloc(25 * sizeof(int));
-	int num_children = getChildren(id, children);
-
-	int shares_per_child = shares / (num_children + 1);
-	int excess = shares % (num_children + 1);
-	tcb[id].time_shares = shares_per_child + excess;
-
-	for (int i = 0; i < num_children; i++) {
-		distributeTimeShares(children[i], shares_per_child);
-	}
-
-	free(children);
-}
-
 int getChildren(int id, int* children) {
 	int count = 0;
 	for (int i = 0; i < MAX_TASKS; i++) {
@@ -210,6 +195,22 @@ int getChildren(int id, int* children) {
 	return count;
 }
 
+void distributeTimeShares(int id, int shares) {
+	int* children = malloc(25 * sizeof(int));
+	int num_children = getChildren(id, children);
+
+	int shares_per_child = shares / (num_children + 1);
+	int excess = shares % (num_children + 1);
+	tcb[id].time_shares = shares_per_child + excess;
+	// printf("Task %d gets %d shares\n", id, shares_per_child + excess);
+
+	for (int i = 0; i < num_children; i++) {
+		distributeTimeShares(children[i], shares_per_child);
+	}
+
+	free(children);
+}
+ 
 int getNextFairTask() {
 	int count = rq->queue[0].count;
 	if (count == 0) { return -1; }
@@ -228,6 +229,16 @@ int getNextFairTask() {
 
 int getRoundRobinPriorityTask() {
 	return deQ(rq, -1);
+}
+
+void killChildren(int id) {
+	int* children = malloc(64 * sizeof(int));
+	int num_children = getChildren(id, children);
+
+	for (int i = 0; i < num_children; i++) {
+		killTask(children[i]);
+	}
+	free(children);
 }
 
 void reassignChildren(int id) {

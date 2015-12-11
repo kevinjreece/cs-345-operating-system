@@ -74,6 +74,7 @@ unsigned char FAT2[NUM_FAT_SECTORS * BYTES_PER_SECTOR];
 
 char dirPath[128];							// current directory path
 FDEntry OFTable[NFILES];					// open file table
+int numOpenFiles;
 
 extern bool diskMounted;					// disk has been mounted
 extern TCB tcb[];							// task control block
@@ -88,10 +89,18 @@ extern int curTask;							// current task #
 //
 int fmsCloseFile(int fileDescriptor)
 {
-	// ?? add code here
-	printf("\nfmsCloseFile Not Implemented");
+	if (fileDescriptor < 0 || fileDescriptor >= NFILES) {
+		return ERR52;
+	}
 
-	return ERR63;
+	if (OFTable[fileDescriptor].name[0] == '\0') {
+		return ERR63;
+	}
+
+	OFTable[fileDescriptor].name[0] = '\0';
+	numOpenFiles--;
+
+	return 0;
 } // end fmsCloseFile
 
 
@@ -116,6 +125,14 @@ int fmsDefineFile(char* fileName, int attribute)
 {
 	// ?? add code here
 	printf("\nfmsDefineFile Not Implemented");
+
+	// new file is a directory
+	if (attribute & DIRECTORY) {
+		printf("\nDIR");
+	}
+	else {
+		printf("\nFILE");
+	}
 
 	return ERR72;
 } // end fmsDefineFile
@@ -162,8 +179,33 @@ int fmsDeleteFile(char* fileName)
 //
 int fmsOpenFile(char* fileName, int rwMode)
 {
-	// ?? add code here
-	printf("\nfmsOpenFile Not Implemented");
+	DirEntry curDirEntry;
+	int error;
+	if (error = fmsGetDirEntry(fileName, &curDirEntry)) {
+		return error;
+	}
+
+	if (numOpenFiles == NFILES) {
+		return ERR70;
+	}
+
+	for (int i = 0; i < NFILES; i++) {
+		if (OFTable[i].name[0] == '\0') {
+			memcpy(OFTable[i].name, curDirEntry.name, 8);
+			memcpy(OFTable[i].extension, curDirEntry.extension, 3);
+			OFTable[i].attributes = curDirEntry.attributes;
+			// OFTable[i].directoryCluster;
+			OFTable[i].startCluster = curDirEntry.startCluster;
+			OFTable[i].currentCluster = 0;
+			OFTable[i].fileSize = (rwMode == OPEN_WRITE) ? 0 : curDirEntry.fileSize;
+			OFTable[i].pid = curTask;
+			OFTable[i].mode = rwMode;
+			OFTable[i].flags = 0;
+			OFTable[i].fileIndex = (rwMode != OPEN_RDWR) ? 0 : curDirEntry.fileSize;
+			numOpenFiles++;
+			return i;
+		}
+	}
 
 	return ERR61;
 } // end fmsOpenFile
@@ -180,12 +222,70 @@ int fmsOpenFile(char* fileName, int rwMode)
 // (If you are already at the end of the file, return EOF error.  ie. you should never
 // return a 0.)
 //
-int fmsReadFile(int fileDescriptor, char* buffer, int nBytes)
+int fmsReadFile(int fileDescriptor, char* buffer, int nBytesToRead)
 {
-	// ?? add code here
-	printf("\nfmsReadFile Not Implemented");
+	int error, nextCluster;
+	FDEntry* fdEntry;
+	int numBytesRead = 0;
+	unsigned int bytesLeft, bufferIndex;
+	fdEntry = &OFTable[fileDescriptor];
 
-	return ERR63;
+	if (fdEntry->name[0] == 0) {
+		return ERR63;
+	}
+	if ((fdEntry->mode == 1) || (fdEntry->mode == 2)) {
+		return ERR85;
+	}
+
+	while (nBytesToRead > 0) {
+		if (fdEntry->fileSize == fdEntry->fileIndex) {
+			return (numBytesRead ? numBytesRead : ERR66);
+		}
+
+		bufferIndex = fdEntry->fileIndex % BYTES_PER_SECTOR;
+
+		if ((bufferIndex == 0) && (fdEntry->fileIndex || !fdEntry->currentCluster)) {
+			if (fdEntry->currentCluster == 0) {
+				if (fdEntry->startCluster == 0) {
+					return ERR66;
+				}
+				nextCluster = fdEntry->startCluster;
+				fdEntry->fileIndex = 0;
+			}
+			else {
+				nextCluster = getFatEntry(fdEntry->currentCluster, FAT1);
+				if (nextCluster == FAT_EOC) {
+					return numBytesRead;
+				}
+			}
+			if (fdEntry->flags & BUFFER_ALTERED) {
+				if ((error = fmsWriteSector(fdEntry->buffer, C_2_S(fdEntry->currentCluster)))) {
+					return error;
+				}
+				fdEntry->flags &= ~BUFFER_ALTERED;
+			}
+			if ((error = fmsReadSector(fdEntry->buffer, C_2_S(nextCluster)))) {
+				return error;
+			}
+			fdEntry->currentCluster = nextCluster;
+		}
+
+		bytesLeft = BYTES_PER_SECTOR - bufferIndex;
+		if (bytesLeft > nBytesToRead) {
+			bytesLeft = nBytesToRead;
+		}
+		if (bytesLeft > (fdEntry->fileSize - fdEntry->fileIndex)) {
+			bytesLeft = fdEntry->fileSize - fdEntry->fileIndex;
+		}
+
+		memcpy(buffer, &fdEntry->buffer[bufferIndex], bytesLeft);
+		fdEntry->fileIndex += bytesLeft;
+		numBytesRead += bytesLeft;
+		buffer += bytesLeft;
+		nBytesToRead -= bytesLeft;
+	}
+
+	return numBytesRead;
 } // end fmsReadFile
 
 
@@ -219,8 +319,31 @@ int fmsSeekFile(int fileDescriptor, int index)
 //
 int fmsWriteFile(int fileDescriptor, char* buffer, int nBytes)
 {
-	// ?? add code here
-	printf("\nfmsWriteFile Not Implemented");
+	if (fileDescriptor < 0 || fileDescriptor >= NFILES) {
+		return ERR52;
+	}
+
+	if (OFTable[fileDescriptor].name[0] == '\0') {
+		return ERR63;
+	}
+
+	if (OFTable[fileDescriptor].mode == )
 
 	return ERR63;
 } // end fmsWriteFile
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
