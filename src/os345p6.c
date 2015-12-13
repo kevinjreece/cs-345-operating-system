@@ -166,6 +166,8 @@ int P6_dir(int argc, char* argv[])		// list directory
 		printDirectoryEntry(&dirEntry);
 		SWAP;
 	}
+
+	// printf("\nindex: %d\n", index);
 	//dumpRAMDisk("Root Directory", 19*512, 20*512);
 	return 0;
 } // end P6_dir
@@ -217,7 +219,7 @@ int P6_dfat(int argc, char* argv[])		// list FAT table
 	{
 		case 1:						//	1	fat					output fat 1 table
 		{
-			printFatEntries("FAT1", start, end);
+			printFatEntries(FAT1, start, end);
 			break;
 		}
 

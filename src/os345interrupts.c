@@ -120,8 +120,8 @@ static void keyboard_isr()
 			case 0x12:						// ^r
 			{
 				sigSignal(-1, mySIGCONT);		// interrupt all tasks
-				sigClear(-1, mySIGTSTP);
-				sigClear(-1, mySIGSTOP);
+				// sigClear(-1, mySIGTSTP);
+				// sigClear(-1, mySIGSTOP);
 				break;
 			}
 

@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 	printf("%s", STARTUP_MSG);
 
 	// initalize OS
-	if ( resetCode = initOS()) return resetCode;
+	if ((resetCode = initOS())) return resetCode;
 
 	// create global/system semaphores here
 	//?? vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -446,7 +446,7 @@ static int initOS()
 	dcLastDecTime = clock();
 
 	// malloc ready queue
-	rq = (int*)malloc((MAX_TASKS + 1) * sizeof(int));
+	rq = (PQueue*)malloc((MAX_TASKS + 1) * sizeof(int));
 	rq->queue[0].count = 0;
 	if (rq == NULL) return 99;
 
